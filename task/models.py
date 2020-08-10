@@ -1,6 +1,9 @@
 from django.db import models
-
+from celery.schedules import crontab
 # Create your models here.
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from .tasks import send_email_weekly, send_email_monthly, send_email_daily
 
 type_choices = (
     ("1","1"),
@@ -31,3 +34,11 @@ class TaskTracker(models.Model):
 
     email = models.EmailField(max_length = 30)
 
+@receiver(post_save, sender=TaskTracker, dispatch_uid="create_celery_task")
+def create_celery(sender, instance, **kwargs):
+    if(instance.update_choices == "1"):
+        send_email_weekly.delay(instance.email, instance.task_type)
+    elif(instance.update_choices == "2"):
+        send_email_daily.delay(instance.email, instance.task_type)
+    elif(instance.update_choices == "3"):
+        send_email_weekly.delay(instance.email, instance.task_type)

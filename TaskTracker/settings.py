@@ -34,6 +34,7 @@ CELERY_BROKER_URL = 'amqp://localhost'
 INSTALLED_APPS = [
     # 'task',
     'rest_framework',
+    'django_celery_beat',
     'task.apps.TaskConfig',
     'django.contrib.admin',
     'django.contrib.auth',

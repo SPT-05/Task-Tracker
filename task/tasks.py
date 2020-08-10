@@ -4,7 +4,7 @@ from celery import shared_task
 from task.models import Task, TaskTracker
 
 from celery.schedules import crontab
-
+from celery.decorators import periodic_task
 import datetime
 
 
@@ -12,24 +12,25 @@ def get_single_day_tasks(task_type, day):
     return Task.objects.filter(task_type = task_type, create_at = day)
 
 def get_single_week_tasks(task_type, day):
-    week_tasks = []
-    for i in range(7):
-        cur_date = day - datetime.timedelta(days = i)
-        week_tasks.append(get_single_day_tasks(task_type, cur_date))
-    return week_tasks
+    start_date = day - datetime.timedelta(days = 7)
+    return Task.objects.filter(created_at__range=[start_date, day])
 
 def get_single_month_tasks(task_type, day):
-    month_tasks = []
-    for i in range(4):
-        cur_week = day - datetime.timedelta(weeks = i)
-        month_tasks.append(get_single_week_tasks(task_type, cur_week))
-    return month_tasks
+    prev_month = day.month - 1
+    cur_year = day.year
+    return Task.objects.filter(created_at__month = prev_month, created_at__year = cur_year)
 
-def sent_email(email, update_type, task_type):
+@periodic_task(run_every = (crontab(minute = 0, hour = '17', day_of_week = 'monday')), name = "weekly_task")
+def send_email_weekly(email, task_type):
     today = datetime.date.today() 
-    if(update_type == "1"):
-        get_single_week_tasks(task_type, today)
-    elif(update_type == "2"):
-        get_single_day_tasks(task_type, today)
-    elif(update_type == "3"):
-        get_single_month_tasks(task_type, today)
+    get_single_week_tasks(task_type, today)
+
+@periodic_task(run_every = (crontab(minute = 0, hour = '17')), name = "daily_task")
+def send_email_daily(email, task_type):
+    today = datetime.date.today() 
+    get_single_day_tasks(task_type, today)
+
+@periodic_task(run_every = (crontab(minute = 0, hour = '17', day_of_month = '1')), name = "monthly_task")
+def send_email_monthly(email, task_type):
+    today = datetime.date.today() 
+    get_single_month_tasks(task_type, today)
